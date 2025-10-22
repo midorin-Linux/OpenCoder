@@ -11,14 +11,14 @@ use cfonts::{say, Align, BgColors, Colors, Env, Fonts, Options};
 use regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio::signal;
 use tracing::{debug, error, info, instrument, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 static RE_COMMAND: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/.*").unwrap());
 
-type Handler = fn(&mut Client, &str) -> Result<String>;
+type Handler = Box<dyn for<'a> Fn(&'a mut Client, &'a str) -> Pin<Box<dyn Future<Output = Result<String>> + 'a>> + Send + Sync>;
 
 struct OpenCoder {
     client: Client,
@@ -29,7 +29,9 @@ impl OpenCoder {
     fn new(config: Config) -> Result<Self> {
         let commands = vec![
             Command{ name: "/exit".to_string(), description: "Exit the application".to_string()},
-            Command{ name: "/help".to_string(), description: "Display help information".to_string()}
+            Command{ name: "/help".to_string(), description: "Display help information".to_string()},
+            Command{ name: "/models".to_string(), description: "Display available models".to_string()},
+            Command{ name: "/set".to_string(), description: "Settings".to_string()},
         ];
 
         let mut app = Self {
@@ -37,8 +39,10 @@ impl OpenCoder {
             handlers: HashMap::new()
         };
 
-        app.handlers.insert("/exit".to_string(), commands::exit as Handler);
-        app.handlers.insert("/help".to_string(), commands::help as Handler);
+        app.handlers.insert("/exit".to_string(), Box::new(|client, input| Box::pin(async move { commands::exit(client, input) })));
+        app.handlers.insert("/help".to_string(), Box::new(|client, input| Box::pin(async move { commands::help(client, input) })));
+        app.handlers.insert("/models".to_string(), Box::new(|client, input| Box::pin(commands::models(client, input))));
+        app.handlers.insert("/set".to_string(), Box::new(|client, input| Box::pin(commands::set(client, input) )));
 
         Ok(app)
     }
@@ -56,7 +60,7 @@ impl OpenCoder {
                 let args = parts.get(1).unwrap_or(&"");
 
                 if let Some(handler) = self.handlers.get(command_name) {
-                    match handler(&mut self.client, args) {
+                    match handler(&mut self.client, args).await {
                         Ok(response) => println!("\n{}\n", response),
                         Err(e) => error!("Command '{}' failed: {}", command_name, e),
                     }
@@ -65,7 +69,7 @@ impl OpenCoder {
                 }
             } else {
                 match self.client.handle_chat("1", &input).await {
-                    Ok(response) => println!("\n{}\n", response),
+                    Ok(response) => println!("\n{:?}\n{}\n", response.model, response.message),
                     Err(e) => error!("Chat failed: {}", e),
                 }
             }

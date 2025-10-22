@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::lm::http;
+use crate::lm::{http, http::Message as LmMessage};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -15,18 +15,25 @@ pub struct Command {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Message { role: String, content: String }
-
 type History = Vec<Message>;
+
+#[derive(Debug)]
+struct SessionData {
+    model: String,
+    history: History,
+}
 
 pub struct Client {
     http_client: http::Client,
     pub commands: Vec<Command>,
-    sessions: HashMap<String, History>,
+    default_model: String,
+    sessions: HashMap<String, SessionData>,
 }
 
 impl Client {
     pub fn new(config: Config, commands: Vec<Command>) -> Result<Self> {
         debug!("Initializing core...");
+        let default_model = config.model.clone();
         let http_client = http::Client::new(&config)?;
 
         debug!("Core initialized!");
@@ -34,24 +41,38 @@ impl Client {
         Ok(Self {
             http_client,
             commands,
+            default_model,
             sessions: HashMap::new(),
         })
     }
+    
+    pub async fn get_models(&mut self) -> Result<Value> {
+        let json = self.http_client.get_models().await?;
+        Ok(json)
+    }
 
-    pub async fn handle_chat(&mut self, session_id: &str, input: &str) -> Result<String> {
-        let history = self.sessions.entry(session_id.to_string()).or_insert_with(|| {
-            vec![Message {
-                role: "system".to_string(),
-                content: "You are a helpful assistant.".to_string(),
-            }]
+    pub fn set_session_model(&mut self, session_id: &str, model: &str) -> Result<()> {
+        let session = self.sessions.entry(session_id.to_string()).or_insert_with(|| SessionData {
+            model: self.default_model.clone(),
+            history: Vec::new(),
+        });
+        session.model = model.to_string();
+        debug!(session_id, model, "Session model updated");
+        Ok(())
+    }
+
+    pub async fn handle_chat(&mut self, session_id: &str, input: &str) -> Result<LmMessage> {
+        let session = self.sessions.entry(session_id.to_string()).or_insert_with(|| SessionData {
+            model: self.default_model.clone(),
+            history: Vec::new(),
         });
 
-        history.push(Message {
+        session.history.push(Message {
             role: "user".to_string(),
             content: input.to_string(),
         });
 
-        let messages: Vec<Value> = history
+        let messages: Vec<Value> = session.history
             .iter()
             .map(|m| {
                 json!({
@@ -61,13 +82,16 @@ impl Client {
             })
             .collect();
 
-        let output = self.http_client.chat_completions(messages).await?;
+        let output = self.http_client.chat_completions(&session.model, messages).await?;
 
-        history.push(Message {
+        session.history.push(Message {
             role: "assistant".to_string(),
-            content: output.clone(),
+            content: output.message.clone(),
         });
 
-        Ok(output)
+        Ok(LmMessage {
+            model: output.model,
+            message: output.message,
+        })
     }
 }

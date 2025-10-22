@@ -10,6 +10,10 @@ fn default_openai_api_url() -> String {
     "http://127.0.0.1:1234/v1".to_string()
 }
 
+fn default_model() -> String{
+    "qwen3-30b-a3b-instruct-2507".to_string()
+}
+
 fn default_rust_log() -> String {
     "info".to_string()
 }
@@ -23,6 +27,9 @@ pub struct Config {
 
     #[serde(rename = "OPENAI_API_URL", default = "default_openai_api_url")]
     pub openai_api_url: String,
+
+    #[serde(rename = "MODEL", default = "default_model")]
+    pub model: String,
 
     #[serde(rename = "RUST_LOG", default = "default_rust_log")]
     pub rust_log: String,
