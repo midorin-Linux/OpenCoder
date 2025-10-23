@@ -1,20 +1,33 @@
-mod commands;
 mod config;
 mod lm;
+mod commands;
 
 use crate::config::Config;
 use crate::lm::client::{Client, Command};
+use std::{
+    collections::HashMap,
+    fs::File,
+    future::Future,
+    pin::Pin,
+    time::Duration
+};
 
-use anyhow::{Context, Result}; use dialoguer::{theme::ColorfulTheme, Select, Input, console::{Term, StyledObject}};
+use anyhow::{Context, Result};
 use cfonts::{say, Align, BgColors, Colors, Env, Fonts, Options};
+use dialoguer::{
+    console::{Term, Style, StyledObject},
+    Input,
+    Select,
+    theme::ColorfulTheme,
+};
 use regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, future::Future, pin::Pin};
-use dialoguer::console::Style;
-use tokio::signal;
+use indicatif::{ProgressBar, ProgressStyle};
+use owo_colors::OwoColorize;
 use tracing::{debug, error, info, instrument, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_appender::{non_blocking, non_blocking::WorkerGuard};
+use tracing_subscriber::EnvFilter;
 
 static RE_COMMAND: Lazy<Regex> = Lazy::new(|| Regex::new(r"^/.*").unwrap());
 
@@ -88,7 +101,7 @@ impl OpenCoder {
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = Config::from_env().context("Failed to load configuration")?;
-
+    let _guard = init_tracing(config.clone());
     let mut app = OpenCoder::new(config.clone()).context("Application Error")?;
 
     say(Options {
@@ -111,12 +124,19 @@ async fn main() -> Result<()> {
 
     println!("We trust you have knowledge of language models.\nIt usually boils down to three things:\n\n   #1) Respect the privacy of others.\n   #2) Language models are never right.\n   #3) Non-coding means great responsibility.\n");
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::new(config.rust_log),
-        )
-        .with(tracing_subscriber::fmt::layer())
+    app.run().await
+}
+
+fn init_tracing(config: Config) -> Result<WorkerGuard> {
+    let file = File::create("tracing.log").context("failed to create tracing.log")?;
+    let (non_blocking, guard) = non_blocking(file);
+
+    let env_filter = EnvFilter::new(config.rust_log);
+
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_env_filter(env_filter)
         .init();
 
-    app.run().await
+    Ok(guard)
 }

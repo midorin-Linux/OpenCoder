@@ -10,7 +10,7 @@ fn default_openai_api_url() -> String {
     "http://127.0.0.1:1234/v1".to_string()
 }
 
-fn default_model() -> String{
+fn default_model() -> String {
     "qwen3-30b-a3b-instruct-2507".to_string()
 }
 
@@ -18,7 +18,9 @@ fn default_rust_log() -> String {
     "info".to_string()
 }
 
-fn default_timeout() -> u64 { 10 }
+fn default_timeout() -> u64 {
+    60
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {

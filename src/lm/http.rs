@@ -54,7 +54,7 @@ impl Client {
                         .context("Failed to parse response JSON")?;
 
                     debug!("Response: {}", response_json.to_string());
-                    
+
                     Ok(response_json)
                 } else {
                     warn!("Models getting failed with status code {}", res.status());

@@ -33,6 +33,7 @@ pub struct Client {
 impl Client {
     pub fn new(config: Config, commands: Vec<Command>) -> Result<Self> {
         debug!("Initializing core...");
+
         let default_model = config.model.clone();
         let http_client = http::Client::new(&config)?;
 
@@ -45,7 +46,7 @@ impl Client {
             sessions: HashMap::new(),
         })
     }
-    
+
     pub async fn get_models(&mut self) -> Result<Value> {
         let json = self.http_client.get_models().await?;
         Ok(json)
