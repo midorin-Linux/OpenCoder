@@ -5,13 +5,13 @@ mod lm;
 use crate::config::Config;
 use crate::lm::client::{Client, Command};
 
-use anyhow::{Context, Result};
-use dialoguer::{theme::SimpleTheme, Select, Input, console::Term};
+use anyhow::{Context, Result}; use dialoguer::{theme::ColorfulTheme, Select, Input, console::{Term, StyledObject}};
 use cfonts::{say, Align, BgColors, Colors, Env, Fonts, Options};
 use regex::Regex;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, future::Future, pin::Pin};
+use dialoguer::console::Style;
 use tokio::signal;
 use tracing::{debug, error, info, instrument, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -49,8 +49,16 @@ impl OpenCoder {
 
     async fn run(&mut self) -> Result<()> {
         loop {
-            let input: String = Input::with_theme(&SimpleTheme)
-                .with_prompt("Enter your message")
+            let theme = ColorfulTheme {
+                prompt_prefix: Style::new().apply_to("".to_string()),
+                prompt_suffix: Style::new().apply_to("".to_string()),
+                success_prefix: Style::new().apply_to("".to_string()),
+                success_suffix: Style::new().apply_to("".to_string()),
+                ..ColorfulTheme::default()
+            };
+
+            let input: String = Input::with_theme(&theme)
+                .with_prompt(">")
                 .interact_text()
                 .context("Failed to read input")?;
 
@@ -100,6 +108,8 @@ async fn main() -> Result<()> {
         env: Env::Cli,
         ..Options::default()
     });
+
+    println!("We trust you have knowledge of language models.\nIt usually boils down to three things:\n\n   #1) Respect the privacy of others.\n   #2) Language models are never right.\n   #3) Non-coding means great responsibility.\n");
 
     tracing_subscriber::registry()
         .with(
