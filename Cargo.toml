@@ -31,3 +31,6 @@ tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
 url = "2.5.7"
 uuid = { version = "1.18.1", features = ["v4"] }
+
+[build]
+rustflags = ["-A", "warnings"]

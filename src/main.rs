@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use cfonts::{say, Align, BgColors, Colors, Env, Fonts, Options};
+use crossterm::style::Stylize;
 use dialoguer::{
     console::{Term, Style, StyledObject},
     Input,
@@ -75,6 +76,11 @@ impl OpenCoder {
                 .interact_text()
                 .context("Failed to read input")?;
 
+            let term = Term::stdout();
+            term.move_cursor_up(1)?;
+            term.clear_line()?;
+            term.write_line(&format!("{}", format!("> {}", input).bright_black()))?;
+
             if RE_COMMAND.is_match(&input) {
                 let parts: Vec<&str> = input.splitn(2, ' ').collect();
                 let command_name = parts[0];
@@ -89,8 +95,24 @@ impl OpenCoder {
                     warn!("Unknown command. Type /help for a list of commands.");
                 }
             } else {
+                println!();
+
+                let spinner = ProgressBar::new_spinner();
+                spinner.set_style(
+                    ProgressStyle::default_spinner()
+                        .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                        .template("{spinner:.blue} {msg}")?,
+                );
+                spinner.set_message("Generating response...");
+                spinner.enable_steady_tick(Duration::from_millis(120));
+
                 match self.client.handle_chat("1", &input).await {
-                    Ok(response) => println!("\n{:?}\n{}\n", response.model, response.message),
+                    Ok(response) => {
+                        // spinner.finish_with_message("Response generated");
+                        spinner.finish_and_clear();
+                        println!("{} Response generated! - {:?}", "✓".green(), response.model);
+                        println!("\n{}\n", response.message);
+                    },
                     Err(e) => error!("Chat failed: {}", e),
                 }
             }
