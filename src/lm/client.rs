@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::lm::{http, http::Message as LmMessage};
+use std::{collections::HashMap};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::HashMap;
 use tracing::{debug, error, info, instrument, warn};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

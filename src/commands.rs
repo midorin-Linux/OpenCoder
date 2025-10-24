@@ -60,3 +60,5 @@ pub async fn set(client: &mut Client, arg: &str) -> Result<String> {
         _ => { Ok("Invalid argument".to_string()) }
     }
 }
+
+pub async fn stream_chat(client: &mut Client, arg: &str) -> Result<()> { Ok(()) }
