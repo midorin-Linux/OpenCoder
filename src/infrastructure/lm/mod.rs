@@ -1,3 +1,3 @@
-mod client;
-mod streaming;
+pub mod client;
 mod error;
+mod streaming;

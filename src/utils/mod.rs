@@ -1,2 +1,2 @@
-mod logging;
+pub mod logging;
 mod regex;
