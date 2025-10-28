@@ -13,9 +13,10 @@ use dialoguer::{
     console::{Style, StyledObject},
     theme::ColorfulTheme,
 };
-use futures::Future;
+use futures::{Future, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
+use reqwest_eventsource::Event;
 use tracing::{debug, error, info, instrument, warn};
 
 pub struct OpenCoder {
@@ -94,35 +95,59 @@ impl OpenCoder {
     async fn handle_chat(&mut self, input: &str) -> Result<()> {
         println!();
 
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::default_spinner()
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-                .template("{spinner} {msg}")?,
-        );
-        spinner.set_message("Generating response...");
-        spinner.enable_steady_tick(std::time::Duration::from_millis(120));
+        let mut es = self.client.stream_chat_completions(self.model.clone(), input.to_string()).await?;
 
-        match self.client.chat_completions(self.model.clone(), input.to_string()).await {
-            Ok(res) => {
-                let formatted_res = self.output.format_model_response(res).await?;
-                spinner.finish_and_clear();
-
-                println!(
-                    "{} Response generated! - {:?}",
-                    "✓".green(),
-                    formatted_res.model
-                );
-                println!("\n{}\n", formatted_res.message);
-
-                Ok(())
-            }
-            Err(e) => {
-                spinner.finish_and_clear();
-                self.output
-                    .print_error(&format!("Failed to generate response: {}", e))?;
-                Err(anyhow::anyhow!("Failed to generate response"))
+        while let Some(event) = es.next().await {
+            match event {
+                Ok(Event::Open) => {},
+                Ok(Event::Message(message)) => {
+                    let formatted_message = self.output.format_model_stream_response(message.data).await?;
+                    match formatted_message.0 {
+                        true => {
+                            println!("\n");
+                            es.close();
+                        },
+                        false => print!("{}", &formatted_message.1)
+                    }
+                },
+                Err(err) => {
+                    println!("Error: {}", err);
+                    es.close();
+                }
             }
         }
+
+        Ok(())
+
+        // let spinner = ProgressBar::new_spinner();
+        // spinner.set_style(
+        //     ProgressStyle::default_spinner()
+        //         .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+        //         .template("{spinner} {msg}")?,
+        // );
+        // spinner.set_message("Generating response...");
+        // spinner.enable_steady_tick(std::time::Duration::from_millis(120));
+        //
+        // match self.client.chat_completions(self.model.clone(), input.to_string()).await {
+        //     Ok(res) => {
+        //         let formatted_res = self.output.format_model_response(res).await?;
+        //         spinner.finish_and_clear();
+        //
+        //         println!(
+        //             "{} Response generated! - {:?}",
+        //             "✓".green(),
+        //             formatted_res.model
+        //         );
+        //         println!("\n{}\n", formatted_res.message);
+        //
+        //         Ok(())
+        //     }
+        //     Err(e) => {
+        //         spinner.finish_and_clear();
+        //         self.output
+        //             .print_error(&format!("Failed to generate response: {}", e))?;
+        //         Err(anyhow::anyhow!("Failed to generate response"))
+        //     }
+        // }
     }
 }

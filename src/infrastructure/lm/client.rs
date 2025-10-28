@@ -1,7 +1,9 @@
 use crate::app::config::Config;
 
 use anyhow::{Context, Result};
+use futures::StreamExt;
 use reqwest::{Client as HttpClient, Error, Response};
+use reqwest_eventsource::{Event, EventSource};
 use serde_json::json;
 use tracing::{debug, error, info, instrument, warn};
 
@@ -108,5 +110,32 @@ impl Client {
                 Err(anyhow::anyhow!("Generating prompt failed"))
             }
         }
+    }
+
+    pub async fn stream_chat_completions(&self, model: ModelSettings, prompt: String) -> Result<EventSource> {
+        debug!("Streaming chat completions...");
+
+        let request_body = json!({
+            "model": model.name,
+            "messages": [
+                { "role": "user", "content": prompt }
+            ],
+            "top_p": model.top_p,
+            "top_k": model.top_k,
+            "temperature": model.temperature,
+            "presence_penalty": model.presence_penalty,
+            "frequency_penalty": model.frequency_penalty,
+            "repeat_penalty": model.repeat_penalty,
+            "stream": true,
+        });
+        
+        let request = self.http_client
+            .post(format!("{}/chat/completions", self.api_url))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request_body);
+
+        let es = EventSource::new(request)?;
+        
+        Ok(es)
     }
 }

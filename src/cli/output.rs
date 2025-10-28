@@ -35,6 +35,24 @@ impl OutputHandler {
         Ok(Message{ model: output_model, message: output_message })
     }
 
+    pub async fn format_model_stream_response(&self, input: String) -> Result<(bool, String)> {
+        let response_text = input.as_str();
+        let response_json: Value = serde_json::from_str(&response_text)
+            .context("Failed to parse response JSON")?;
+
+        let output_message = response_json["choices"][0]["delta"]["content"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+
+        let is_finish = response_json["choices"][0]["finish_reason"]
+            .as_str()
+            .map(|s| s == "stop".to_string())
+            .unwrap_or(false);
+
+        Ok((is_finish, output_message))
+    }
+
     pub fn print_command_response(&self, input: &str) -> Result<()> {
         println!("{}", input);
 
