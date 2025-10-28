@@ -4,7 +4,7 @@ use crate::commands::handlers::exit::exit;
 use crate::commands::command::Command;
 use crate::commands::registry::CommandRegistry;
 use crate::commands::parser::parse_input;
-use crate::infrastructure::lm::client::Client;
+use crate::infrastructure::lm::client::{Client, ModelSettings};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
@@ -23,8 +23,8 @@ pub struct OpenCoder {
     output: OutputHandler,
     prompt: Prompt,
     registry: CommandRegistry,
-    pub commands: Vec<Command>,
-    model: String,
+    commands: Vec<Command>,
+    model: ModelSettings,
 }
 
 impl OpenCoder {
@@ -36,7 +36,7 @@ impl OpenCoder {
             Command{ name: "/exit".to_string(), description: "Exit from application.".to_string() }
         ];
 
-        let model = config.model;
+        let model = ModelSettings { name: "qwen3-30b-a3b-instruct-2507".to_string(), top_p: 0.7, top_k: 40, temperature: 0.7, presence_penalty: 0.0, frequency_penalty: 0.0, repeat_penalty: 1.0 };
 
         let mut app = Self {
             client,

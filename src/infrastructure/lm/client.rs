@@ -5,6 +5,17 @@ use reqwest::{Client as HttpClient, Error, Response};
 use serde_json::json;
 use tracing::{debug, error, info, instrument, warn};
 
+#[derive(Clone)]
+pub struct ModelSettings {
+    pub name: String,
+    pub top_p: f64,
+    pub top_k: u64,
+    pub temperature: f64,
+    pub presence_penalty: f64,
+    pub frequency_penalty: f64,
+    pub repeat_penalty: f64,
+}
+
 pub struct Client {
     api_url: String,
     api_key: String,
@@ -55,15 +66,20 @@ impl Client {
         }
     }
 
-    pub async fn chat_completions(&self, model: String, prompt: String) -> Result<Response> {
+    pub async fn chat_completions(&self, model: ModelSettings, prompt: String) -> Result<Response> {
         debug!("Posting chat completions...");
 
         let request_body = json!({
-            "model": model,
+            "model": model.name,
             "messages": [
                 { "role": "user", "content": prompt }
             ],
-            "temperature": 0.7
+            "top_p": model.top_p,
+            "top_k": model.top_k,
+            "temperature": model.temperature,
+            "presence_penalty": model.presence_penalty,
+            "frequency_penalty": model.frequency_penalty,
+            "repeat_penalty": model.repeat_penalty
         });
 
         match self
