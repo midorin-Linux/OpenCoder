@@ -5,6 +5,7 @@ use crate::commands::command::Command;
 use crate::commands::registry::CommandRegistry;
 use crate::commands::parser::parse_input;
 use crate::infrastructure::lm::client::{Client, ModelSettings};
+use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
@@ -95,19 +96,33 @@ impl OpenCoder {
     async fn handle_chat(&mut self, input: &str) -> Result<()> {
         println!();
 
-        let mut es = self.client.stream_chat_completions(self.model.clone(), input.to_string()).await?;
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_style(
+            ProgressStyle::default_spinner()
+                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
+                .template("{spinner}")?,
+        );
+        spinner.enable_steady_tick(std::time::Duration::from_millis(120));
 
+        let mut es = self.client.stream_chat_completions(self.model.clone(), input.to_string()).await?;
         while let Some(event) = es.next().await {
             match event {
                 Ok(Event::Open) => {},
                 Ok(Event::Message(message)) => {
+                    if !spinner.is_finished() {
+                        spinner.finish_and_clear();
+                    }
+
                     let formatted_message = self.output.format_model_stream_response(message.data).await?;
                     match formatted_message.0 {
                         true => {
                             println!("\n");
                             es.close();
                         },
-                        false => print!("{}", &formatted_message.1)
+                        false => {
+                            print!("{}", formatted_message.1);
+                            io::stdout().flush()?;
+                        }
                     }
                 },
                 Err(err) => {
@@ -119,15 +134,6 @@ impl OpenCoder {
 
         Ok(())
 
-        // let spinner = ProgressBar::new_spinner();
-        // spinner.set_style(
-        //     ProgressStyle::default_spinner()
-        //         .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-        //         .template("{spinner} {msg}")?,
-        // );
-        // spinner.set_message("Generating response...");
-        // spinner.enable_steady_tick(std::time::Duration::from_millis(120));
-        //
         // match self.client.chat_completions(self.model.clone(), input.to_string()).await {
         //     Ok(res) => {
         //         let formatted_res = self.output.format_model_response(res).await?;
