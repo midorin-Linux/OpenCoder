@@ -23,7 +23,8 @@ pub struct OpenCoder {
     output: OutputHandler,
     prompt: Prompt,
     registry: CommandRegistry,
-    pub commands: Vec<Command>
+    pub commands: Vec<Command>,
+    model: String,
 }
 
 impl OpenCoder {
@@ -35,12 +36,15 @@ impl OpenCoder {
             Command{ name: "/exit".to_string(), description: "Exit from application.".to_string() }
         ];
 
+        let model = config.model;
+
         let mut app = Self {
             client,
             output: OutputHandler::new()?,
             prompt: Prompt::new()?,
             registry,
-            commands
+            commands,
+            model
         };
 
         app.registry.register(app.commands[0].clone(), Box::new(|client, args| Box::pin(async move { exit(client, args)})));
@@ -99,7 +103,7 @@ impl OpenCoder {
         spinner.set_message("Generating response...");
         spinner.enable_steady_tick(std::time::Duration::from_millis(120));
 
-        match self.client.chat_completions(input.to_string()).await {
+        match self.client.chat_completions(self.model.clone(), input.to_string()).await {
             Ok(res) => {
                 let formatted_res = self.output.format_model_response(res).await?;
                 spinner.finish_and_clear();

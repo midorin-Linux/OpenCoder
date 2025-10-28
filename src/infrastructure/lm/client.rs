@@ -55,11 +55,11 @@ impl Client {
         }
     }
 
-    pub async fn chat_completions(&self, prompt: String) -> Result<Response> {
+    pub async fn chat_completions(&self, model: String, prompt: String) -> Result<Response> {
         debug!("Posting chat completions...");
 
         let request_body = json!({
-            "model": "openai/gpt-oss-20b:free",
+            "model": model,
             "messages": [
                 { "role": "user", "content": prompt }
             ],
