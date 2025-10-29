@@ -11,7 +11,7 @@ MODEL=
 RUST_LOG=
 TIMEOUT_SECS=
 ```
-- **API_URL** APIエンドポイント([http://127.0.0.1:1234/v1/models](http://127.0.0.1:1234/v1/models)でモデルを取得で見る場合は[http://127.0.0.1:1234/v1](http://127.0.0.1:1234/v1)と入力)
+- **API_URL** APIエンドポイント([http://127.0.0.1:1234/v1/models](http://127.0.0.1:1234/v1/models)でモデルを取得できる場合は[http://127.0.0.1:1234/v1](http://127.0.0.1:1234/v1)と入力)
 - **API_KEY** APIキーを入力してください
 - **MODEL** 使うモデル名を入力してください
 - **RUST_LOG** ロギングレベル(debug, info, warn, error)を入力してください
