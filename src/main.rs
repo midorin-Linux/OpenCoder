@@ -9,7 +9,6 @@ use crate::app::config::Config;
 use crate::utils::logging::init_tracing;
 
 use anyhow::Result;
-use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<()> {

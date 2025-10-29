@@ -1,3 +1,2 @@
-mod config;
 pub mod lm;
-mod storage;
+pub mod storage;

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use futures::StreamExt;
 use reqwest::{Client as HttpClient, Error, Response};
 use reqwest_eventsource::{Event, EventSource};
-use serde_json::json;
+use serde_json::{json, Value};
 use tracing::{debug, error, info, instrument, warn};
 
 #[derive(Clone)]
@@ -112,14 +112,12 @@ impl Client {
         }
     }
 
-    pub async fn stream_chat_completions(&self, model: ModelSettings, prompt: String) -> Result<EventSource> {
+    pub async fn stream_chat_completions(&self, model: ModelSettings, messages: Vec<Value>) -> Result<EventSource> {
         debug!("Streaming chat completions...");
 
         let request_body = json!({
             "model": model.name,
-            "messages": [
-                { "role": "user", "content": prompt }
-            ],
+            "messages": messages,
             "top_p": model.top_p,
             "top_k": model.top_k,
             "temperature": model.temperature,
