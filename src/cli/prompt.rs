@@ -1,4 +1,3 @@
-// ToDo: 入出力プロンプト実装
 use anyhow::{Context, Result};
 use dialoguer::{Input, theme::ColorfulTheme};
 

@@ -1,4 +1,3 @@
-// ToDo: 出力フォーマット実装
 use anyhow::{Context, Result};
 use cfonts::{say, Align, BgColors, Colors, Env, Fonts, Options};
 use dialoguer::console::Term;

@@ -1,20 +1,20 @@
 use crate::app::config::Config;
 use crate::cli::{output::OutputHandler, prompt::Prompt};
-use crate::commands::handlers::exit::exit;
-use crate::commands::command::Command;
-use crate::commands::registry::CommandRegistry;
-use crate::commands::parser::parse_input;
-use crate::infrastructure::lm::client::{Client, ModelSettings};
-use crate::infrastructure::storage::history_store::{HistoryStore, Role, Message};
+use crate::commands::{
+    command::Command,
+    handlers::exit::exit,
+    parser::parse_input,
+    registry::CommandRegistry,
+};
+use crate::infrastructure::{
+    lm::client::{Client, ModelSettings},
+    storage::history_store::{HistoryStore, Role, Message}
+};
 use std::io::{self, Write};
 
 use anyhow::{Context, Result};
-use dialoguer::{
-    Input, Select,
-    console::{Style, StyledObject},
-    theme::ColorfulTheme,
-};
-use futures::{Future, StreamExt};
+use dialoguer::{console::Style, theme::ColorfulTheme};
+use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::OwoColorize;
 use reqwest_eventsource::Event;
