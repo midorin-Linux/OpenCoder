@@ -42,29 +42,28 @@ impl Client {
         })
     }
 
-    pub async fn get_model_list(&self) -> Result<Response> {
+    pub async fn get_model_list(&self) -> Result<Value> {
         debug!("Getting model list...");
 
-        match self
+        let res = self
             .http_client
             .get(format!("{}/models", self.api_url))
             .header("Content-Type", "application/json")
             .send()
             .await
-        {
-            Ok(res) => {
-                if res.status().is_success() {
-                    debug!("Models list getting successful");
-                    Ok(res)
-                } else {
-                    warn!("Models getting failed with status code {}", res.status());
-                    Err(anyhow::anyhow!("Health checking failed"))
-                }
-            }
-            Err(e) => {
-                error!("Models getting failed with error: {}", e);
-                Err(anyhow::anyhow!("Models getting failed"))
-            }
+            .context("Failed to get model list")?;
+
+        if res.status().is_success() {
+            debug!("Models list getting successful");
+
+            let response_json: Value = res.json().await.context("Failed to parse response JSON")?;
+
+            Ok(response_json)
+        } else {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            warn!("Models getting failed with status code {}: {}", status, text);
+            Err(anyhow::anyhow!("Failed to get model list with status: {}", status))
         }
     }
 
@@ -84,35 +83,34 @@ impl Client {
             "repeat_penalty": model.repeat_penalty
         });
 
-        match self
+        let res = self
             .http_client
             .post(format!("{}/chat/completions", self.api_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request_body)
             .send()
             .await
-        {
-            Ok(res) => {
-                if res.status().is_success() {
-                    debug!("Generating prompt successful");
-                    Ok(res)
-                } else {
-                    warn!(
-                        "Generating prompt failed with status code {}: {}",
-                        res.status(),
-                        res.text().await?
-                    );
-                    Err(anyhow::anyhow!("Generating prompt failed"))
-                }
-            }
-            Err(e) => {
-                error!("Generating prompt failed with error: {}", e);
-                Err(anyhow::anyhow!("Generating prompt failed"))
-            }
+            .context("Failed to post chat completions")?;
+
+        if res.status().is_success() {
+            debug!("Generating prompt successful");
+            Ok(res)
+        } else {
+            let status = res.status();
+            let text = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            warn!(
+                "Generating prompt failed with status code {}: {}",
+                status, text
+            );
+            Err(anyhow::anyhow!("Failed to generate prompt with status: {}", status))
         }
     }
 
-    pub async fn stream_chat_completions(&self, model: ModelSettings, messages: Vec<Value>) -> Result<EventSource> {
+    pub async fn stream_chat_completions(
+        &self,
+        model: ModelSettings,
+        messages: Vec<Value>,
+    ) -> Result<EventSource> {
         debug!("Streaming chat completions...");
 
         let request_body = json!({
@@ -126,14 +124,13 @@ impl Client {
             "repeat_penalty": model.repeat_penalty,
             "stream": true,
         });
-        
-        let request = self.http_client
+
+        let request = self
+            .http_client
             .post(format!("{}/chat/completions", self.api_url))
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request_body);
 
-        let es = EventSource::new(request)?;
-        
-        Ok(es)
+        EventSource::new(request).context("Failed to create event source for streaming")
     }
 }

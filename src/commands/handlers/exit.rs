@@ -1,8 +1,8 @@
-use crate::infrastructure::lm::client::Client;
+use crate::app::runner::OpenCoder;
 
 use tracing::info;
 
-pub fn exit(_client: &mut Client, _arg: &str) -> anyhow::Result<String> {
+pub fn exit(_open_coder: &mut OpenCoder, _arg: &str) -> anyhow::Result<String> {
     info!("Exiting...");
     std::process::exit(0);
 }

@@ -2,13 +2,13 @@ use crate::app::config::Config;
 use crate::cli::{output::OutputHandler, prompt::Prompt};
 use crate::commands::{
     command::Command,
-    handlers::exit::exit,
+    handlers::{exit::exit, set::set},
     parser::parse_input,
     registry::CommandRegistry,
 };
 use crate::infrastructure::{
     lm::client::{Client, ModelSettings},
-    storage::history_store::{HistoryStore, Role, Message}
+    storage::history_store::{HistoryStore, Message, Role},
 };
 use std::io::{self, Write};
 
@@ -21,37 +21,34 @@ use reqwest_eventsource::Event;
 use tracing::{debug, error, info, instrument, warn};
 
 pub struct OpenCoder {
-    client: Client,
+    pub client: Client,
     output: OutputHandler,
     prompt: Prompt,
-    registry: CommandRegistry,
-    commands: Vec<Command>,
-    model: ModelSettings,
-    history_store: HistoryStore
+    pub model: ModelSettings,
+    history_store: HistoryStore,
 }
 
 impl OpenCoder {
     pub fn new(config: Config) -> Result<Self> {
         let client = Client::new(config.clone()).context("Failed to initialize LM client")?;
 
-        let registry = CommandRegistry::new()?;
-        let commands = vec![
-            Command{ name: "/exit".to_string(), description: "Exit from application.".to_string() }
-        ];
+        let model = ModelSettings {
+            name: "qwen3-30b-a3b-instruct-2507".to_string(),
+            top_p: 0.95,
+            top_k: 40,
+            temperature: 0.7,
+            presence_penalty: 0.0,
+            frequency_penalty: 0.0,
+            repeat_penalty: 1.0,
+        };
 
-        let model = ModelSettings { name: "qwen3-30b-a3b-instruct-2507".to_string(), top_p: 0.7, top_k: 40, temperature: 0.7, presence_penalty: 0.0, frequency_penalty: 0.0, repeat_penalty: 1.0 };
-
-        let mut app = Self {
+        let app = Self {
             client,
             output: OutputHandler::new()?,
             prompt: Prompt::new()?,
-            registry,
-            commands,
             model,
-            history_store: HistoryStore::new("You are a helpful assistant.")?
+            history_store: HistoryStore::new("You are a helpful assistant.")?,
         };
-
-        app.registry.register(app.commands[0].clone(), Box::new(|client, args| Box::pin(async move { exit(client, args)})));
 
         Ok(app)
     }
@@ -59,6 +56,26 @@ impl OpenCoder {
     pub async fn run(&mut self) -> Result<()> {
         self.output.show_banner();
         self.output.show_welcome_message();
+
+        let mut registry = CommandRegistry::new()?;
+        let commands = vec![
+            Command {
+                name: "/exit".to_string(),
+                description: "Exit from application.".to_string(),
+            },
+            Command {
+                name: "/set".to_string(),
+                description: "Set model settings.".to_string(),
+            },
+        ];
+        registry.register(
+            commands[0].clone(),
+            Box::new(|open_coder, args| Box::pin(async move { exit(open_coder, args) })),
+        );
+        registry.register(
+            commands[1].clone(),
+            Box::new(|open_coder, args| Box::pin(set(open_coder, args))),
+        );
 
         loop {
             let theme = ColorfulTheme {
@@ -74,7 +91,7 @@ impl OpenCoder {
             self.output.echo_input(&input)?;
 
             if self.is_command(&input) {
-                self.handle_command(&input).await?;
+                self.handle_command(&input, &registry).await?;
             } else {
                 self.handle_chat(&input).await?;
             }
@@ -85,11 +102,19 @@ impl OpenCoder {
         input.starts_with("/")
     }
 
-    async fn handle_command(&mut self, input: &str) -> Result<()> {
+    async fn handle_command(&mut self, input: &str, registry: &CommandRegistry) -> Result<()> {
         let parse = parse_input(input);
 
         if let Some((command, args)) = parse {
-            self.registry.execute(command.as_str(), args, &mut self.client).await?;
+            match registry.execute(command.as_str(), args, self).await {
+                Ok(command_response) => {
+                    self.output.print_command_response(&command_response)?;
+                }
+                Err(e) => {
+                    self.output
+                        .print_error(&format!("Failed to execute command: {}", e))?
+                }
+            }
         }
 
         Ok(())
@@ -114,24 +139,29 @@ impl OpenCoder {
         let mut full_response = String::new();
 
         // ストリーミング処理
-        let mut es = self.client.stream_chat_completions(self.model.clone(), messages).await?;
+        let mut es = self
+            .client
+            .stream_chat_completions(self.model.clone(), messages)
+            .await?;
         while let Some(event) = es.next().await {
             match event {
-                Ok(Event::Open) => {},
+                Ok(Event::Open) => {}
                 Ok(Event::Message(message)) => {
                     if !spinner.is_finished() {
                         spinner.finish_and_clear();
-                        println!("{} Response generated! - {:?}", "✓".green(), self.model.name);
+                        println!(
+                            "{} Response generated! - {:?}",
+                            "✓".green(),
+                            self.model.name
+                        );
                     }
 
                     let formatted_message = self.output.format_model_stream_response(message.data).await?;
                     match formatted_message.0 {
                         true => {
-                            self.history_store.add_history(Role::Assistant, &full_response)?;
-
                             es.close();
                             println!("\n");
-                        },
+                        }
                         false => {
                             full_response.push_str(&formatted_message.1);
 
@@ -139,37 +169,23 @@ impl OpenCoder {
                             io::stdout().flush()?;
                         }
                     }
-                },
+                }
                 Err(err) => {
-                    println!("Error: {}", err);
+                    if !spinner.is_finished() {
+                        spinner.finish_and_clear();
+                        println!("{} Failed to generate response", "✗".red());
+                    }
+                    println!("Error: {}\n", err);
                     es.close();
                 }
             }
         }
 
-        Ok(())
+        if !full_response.is_empty() {
+            self.history_store
+                .add_history(Role::Assistant, &full_response)?;
+        }
 
-        // 一括出力は将来的に削除、または選択肢として残す
-        // match self.client.chat_completions(self.model.clone(), input.to_string()).await {
-        //     Ok(res) => {
-        //         let formatted_res = self.output.format_model_response(res).await?;
-        //         spinner.finish_and_clear();
-        //
-        //         println!(
-        //             "{} Response generated! - {:?}",
-        //             "✓".green(),
-        //             formatted_res.model
-        //         );
-        //         println!("\n{}\n", formatted_res.message);
-        //
-        //         Ok(())
-        //     }
-        //     Err(e) => {
-        //         spinner.finish_and_clear();
-        //         self.output
-        //             .print_error(&format!("Failed to generate response: {}", e))?;
-        //         Err(anyhow::anyhow!("Failed to generate response"))
-        //     }
-        // }
+        Ok(())
     }
 }

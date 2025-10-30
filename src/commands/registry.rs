@@ -1,10 +1,11 @@
+use crate::app::runner::OpenCoder;
 use crate::commands::command::Command;
 use crate::infrastructure::lm::client::Client;
 use std::{collections::HashMap, pin::Pin};
 
 use anyhow::{anyhow, Result};
 
-type Handler = Box<dyn for<'a> Fn(&'a mut Client, &'a str) -> Pin<Box<dyn Future<Output = Result<String>> + 'a>> + Send + Sync>;
+type Handler = Box<dyn for<'a> Fn(&'a mut OpenCoder, &'a str) -> Pin<Box<dyn Future<Output = Result<String>> + 'a>> + Send + Sync>;
 
 pub struct CommandRegistry {
     commands: HashMap<String, Command>,
@@ -26,9 +27,9 @@ impl CommandRegistry {
         self.commands.values().collect()
     }
 
-    pub async fn execute(&self, name: &str, args: &str, client: &mut Client) -> Result<String> {
+    pub async fn execute(&self, name: &str, args: &str, open_coder: &mut OpenCoder) -> Result<String> {
         if let Some(handler) = self.handlers.get(name) {
-            match handler(client, args).await {
+            match handler(open_coder, args).await {
                 Ok(result) => Ok(result),
                 Err(err) => Err(err)
             }

@@ -53,21 +53,21 @@ impl OutputHandler {
     }
 
     pub fn print_command_response(&self, input: &str) -> Result<()> {
-        println!("{}", input);
+        println!("\n{}\n", input);
 
         Ok(())
     }
 
     // ToDo: 独自の出力方法にする
     pub fn print_warning(&self, input: &str) -> Result<()> {
-        println!("{}", input);
+        println!("\n{}\n", input);
 
         Ok(())
     }
 
     // ToDo: 独自の出力方法にする
     pub fn print_error(&self, input: &str) -> Result<()> {
-        println!("{}", input);
+        println!("\n{}\n", input);
 
         Ok(())
     }
