@@ -3,8 +3,8 @@
 > 自戒: 本名でcommitしない
 
 ## app/
-- **config.rs** 将来的に.envとsettings.tomlで設定できるようにする
-- **runner.rs** Commandのベクトルを消して、`commands/registry.rs`ですべてのコマンドを管理するようにする
+- **config.rs** 特になし
+- **runner.rs** 特になし
 ## cli/
 - **output.rs** warningやerrorを独自のフォーマットで出力。またモデルからのレスポンスをmd対応にする
 - **prompt.rs** デザイン変更
@@ -16,7 +16,7 @@
 ## domain/
 固有ドメインに対応
 ## infrastructure/
-- **lm/clinet.rs** セッション内でモデルを変える機能を実装。
+- **lm/clinet.rs** 特になし
 - **lm/error.rs** エラーハンドリングの実装
 - **storage/** セッションをベクトルサーバーに保存。
 ## utils/
