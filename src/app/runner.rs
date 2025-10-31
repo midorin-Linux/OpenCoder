@@ -26,6 +26,7 @@ pub struct OpenCoder {
     prompt: Prompt,
     pub model: ModelSettings,
     history_store: HistoryStore,
+    pub theme: ColorfulTheme
 }
 
 impl OpenCoder {
@@ -42,12 +43,21 @@ impl OpenCoder {
             repeat_penalty: 1.0,
         };
 
+        let theme = ColorfulTheme {
+            prompt_prefix: Style::new().apply_to("".to_string()),
+            prompt_suffix: Style::new().apply_to("".to_string()),
+            success_prefix: Style::new().apply_to("".to_string()),
+            success_suffix: Style::new().apply_to("".to_string()),
+            ..ColorfulTheme::default()
+        };
+
         let app = Self {
             client,
             output: OutputHandler::new()?,
             prompt: Prompt::new()?,
             model,
             history_store: HistoryStore::new("You are a helpful assistant.")?,
+            theme
         };
 
         Ok(app)
@@ -78,15 +88,7 @@ impl OpenCoder {
         );
 
         loop {
-            let theme = ColorfulTheme {
-                prompt_prefix: Style::new().apply_to("".to_string()),
-                prompt_suffix: Style::new().apply_to("".to_string()),
-                success_prefix: Style::new().apply_to("".to_string()),
-                success_suffix: Style::new().apply_to("".to_string()),
-                ..ColorfulTheme::default()
-            };
-
-            let input = self.prompt.read_input(&theme)?;
+            let input = self.prompt.read_input(&self.theme)?;
 
             self.output.echo_input(&input)?;
 
