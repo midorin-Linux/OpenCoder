@@ -1,6 +1,14 @@
-// ToDo: Helpコマンドを作る
-use crate::infrastructure::lm::client::Client;
+use crate::app::runner::OpenCoder;
 
-pub fn help(client: &mut Client, args: &str) -> anyhow::Result<String> {
-    Ok("help command".to_string())
+pub fn help(_client: &mut OpenCoder, _args: &str) -> anyhow::Result<String> {
+    Ok(r#"
+Usage: <command> [args]
+
+Commands:
+  /set [args]    Set a value
+  /exit          Exit the application
+  /help          Show this help message
+
+For more information on a specific command, run /<command> help.
+"#.to_string())
 }

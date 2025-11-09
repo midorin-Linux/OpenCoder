@@ -2,7 +2,7 @@ use crate::app::config::Config;
 use crate::cli::{output::OutputHandler, prompt::Prompt};
 use crate::commands::{
     command::Command,
-    handlers::{exit::exit, set::set},
+    handlers::{exit::exit, help::help, set::set},
     parser::parse_input,
     registry::CommandRegistry,
 };
@@ -74,6 +74,10 @@ impl OpenCoder {
                 description: "Exit from application.".to_string(),
             },
             Command {
+                name: "/help".to_string(),
+                description: "Show this help message.".to_string(),
+            },
+            Command {
                 name: "/set".to_string(),
                 description: "Set model settings.".to_string(),
             },
@@ -84,6 +88,10 @@ impl OpenCoder {
         );
         registry.register(
             commands[1].clone(),
+            Box::new(|open_coder, args| Box::pin(async move { help(open_coder, args) })),
+        );
+        registry.register(
+            commands[2].clone(),
             Box::new(|open_coder, args| Box::pin(set(open_coder, args))),
         );
 
